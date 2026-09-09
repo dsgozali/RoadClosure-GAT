@@ -2,15 +2,9 @@ import streamlit as st
 import pandas as pd
 import geopandas as gpd
 import folium
-# from shapely.geometry import Point, LineString
 from streamlit_folium import folium_static
 import json
 import numpy as np
-# from shapely.ops import nearest_points
-# from pyproj import Geod
-# from shapely import wkt
-# from datetime import datetime, date
-
 st.set_page_config(layout="wide")
 
 
