@@ -1,0 +1,7 @@
+.main-title {
+    color: var(--mantine-color-gray-6);
+}
+
+[data-mantine-color-scheme="dark"] .main-title {
+    color: var(--mantine-color-gray-3);
+}
