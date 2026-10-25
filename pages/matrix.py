@@ -17,9 +17,16 @@ def _safe_int(value):
 
 def apply_value_coloring(df, columns, color_map):
     """Applies dynamic cell backgrounds and text styles based on cell values."""
-    # Handle the 'None' / missing value default fallback styling
+    columns = list(columns)
+
+    display_df = df.select([
+        "Direction",
+        "Day-HR",
+        *columns,
+    ])
+
     gt_obj = (
-        GT(df)
+        GT(display_df)
         .tab_style(
             style=style.fill("white"),
             locations=loc.body(columns=columns),
@@ -32,21 +39,17 @@ def apply_value_coloring(df, columns, color_map):
 
     for column in columns:
         for val, color in color_map.items():
-            try:
-                v = int(val)  # Safe integer conversion equivalent
-            except (ValueError, TypeError):
-                continue
-
             gt_obj = gt_obj.tab_style(
                 style=[
                     style.fill(color),
-                    style.text(color="#1f2937", weight="bold"),
+                    style.text(color="#1f2937"),
                 ],
-                # Target cells where the value matches 'v'
-                locations=loc.body(columns=column, rows=pl.col(column).cast(
+                locations=loc.body(
+                    columns=column, 
+                    rows=pl.col(column).cast(
                         pl.Int64,
                         strict=False,
-                    ) == v,
+                    ) == val,
                 ),
             )
 
@@ -91,15 +94,16 @@ def _build_matrix_group(description, direction, df, HOUR_LABELS):
                 # if label in values:
                 if label in values['HOUR']:
                     # Simple heuristic NEED integration with road inventory to identify the road type.
-                    # lanes = (values.loc[label] // 1000) + 1
-                    lanes = ((values.filter(pl.col("HOUR") == label).select("DAYNAMES").item()) // 1000) + 1
+                    vol_item = (values.filter(pl.col("HOUR") == label).select("DAYNAMES").item())
+                    lanes = int(vol_item // 1000) + 1 if vol_item else 0
                     record[hour_id] = lanes if lanes else 0
+                else:
+                    record[hour_id] = 0
             rows.append(record)
         temp = pl.DataFrame(rows)
         return temp
     temp = pl.DataFrame({"Direction": direction, "Day-HR": ["Weekday", "Saturday", "Sunday"]})
     return temp
-
 
 def _style_matrix(frame: pl.DataFrame) -> Styler:
     """
@@ -123,15 +127,8 @@ def _style_matrix(frame: pl.DataFrame) -> Styler:
     return styled
 
 def display_matrix(frame: pl.DataFrame) -> None:
-    id_columns = {"Direction", "Day-HR"}
+    hour_columns = ['12-1am', '1-2am', '2-3am', '3-4am', '4-5am', '5-6am', '6-7am', '7-8am', '8-9am', '9-10am', '10-11am', '11-12pm', '12-1pm', '1-2pm', '2-3pm', '3-4pm', '4-5pm', '5-6pm', '6-7pm', '7-8pm', '8-9pm', '9-10pm', '10-11pm', '11-12am']
 
-    hour_columns = [
-        col
-        for col in frame.columns
-        if col not in id_columns
-    ]
-
-    # Ensure hour columns are numeric
     frame = frame.with_columns(
         [
             pl.col(col)
@@ -140,18 +137,7 @@ def display_matrix(frame: pl.DataFrame) -> None:
             for col in hour_columns
         ]
     )
-
-    # Streamlit column configuration
-    column_config = {
-        "Direction": st.column_config.TextColumn(
-            "Direction"
-        ),
-        "Day-HR": st.column_config.TextColumn(
-            "Day-HR"
-        ),
-    }
-
-    # Configure all hour columns to display 0 decimal places
+    column_config = {"Direction": st.column_config.TextColumn("Direction"), "Day-HR": st.column_config.TextColumn("Day-HR")}
     for col in hour_columns:
         column_config[col] = st.column_config.NumberColumn(
             col,
@@ -161,13 +147,11 @@ def display_matrix(frame: pl.DataFrame) -> None:
     styled = apply_value_coloring(frame, hour_columns, COLOR_MAP)
     return styled, column_config
 
-
 def render_matrix():
     """
     Render matrix-like table for visualizing the number of lanes to be opened (or closed).
     """
     df = _load_matrix_df()
-    print(df.shape)
     if df.is_empty():
         st.warning("No matrix data was available to render.")
         return
@@ -194,7 +178,7 @@ def render_matrix():
     st.title("Road Closure Table View")
     st.subheader(f"{selected_street} access hours by direction and day type")
 
-    if st.button("Download PDF (No Styling)"):
+    if st.button("Download PDF"):
         pdf_buffer = export_df_to_pdf(df)  # Use raw df, not styled_df
         st.download_button(
             label="Click to Download",
@@ -207,7 +191,6 @@ def render_matrix():
     descs = sorted(set(filtered_df["DESCRIPTION"].drop_nulls().to_list()))
 
     for street_desc in descs:
-        # matrix = pd.DataFrame()
         matrix = pl.DataFrame()
         left_matrix = _build_matrix_group(street_desc, direction_values[0], filtered_df, HOUR_LABELS)
         right_matrix = _build_matrix_group(street_desc, direction_values[1] if len(direction_values) > 1 else direction_values[0], filtered_df, HOUR_LABELS)
@@ -221,42 +204,6 @@ def render_matrix():
 
         # Display in Streamlit
         st.markdown(html_table, unsafe_allow_html=True)
-        # st.dataframe(
-        #     frame,
-        #     column_config=column_config,
-        #     hide_index=True,
-        #     width='stretch',
-        # )
 
         st.info(LEGEND_TEXT)
         st.divider()
-
-   
-    # # Number of items per page
-    # items_per_page = 2
-
-    # page_number = st.pagination(
-    #     num_pages=(len(street_names) - 1) // items_per_page + 1,
-    #     default=1
-    # )
-    # # Calculate start and end indices
-    # start_idx = (page_number - 1) * items_per_page
-    # end_idx = start_idx + items_per_page
-
-    # # Display paginated data
-    # st.write(f"Showing page {page_number}")
-    # # st.dataframe(data.iloc[start_idx:end_idx])
-
-    # for street_name in street_names:
-        
-    #     matrix = pd.DataFrame()
-    #     left_matrix = _build_matrix_group(street_name, direction_values[0], df)
-    #     right_matrix = _build_matrix_group(street_name, direction_values[1] if len(direction_values) > 1 else direction_values[0], df)
-
-    #     matrix = pd.concat([left_matrix, right_matrix], ignore_index=True)
-    #     st.markdown(f"#### {street_name}")
-    #     st.dataframe(_style_matrix(matrix), width="stretch", hide_index=True)
-
-    #     st.info(LEGEND_TEXT)
-    #     st.divider()
-

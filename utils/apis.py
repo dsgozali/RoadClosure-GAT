@@ -28,7 +28,6 @@ def fetch_local_data():
         df = df.loc[(df['REGION_NAME'] == "Metropolitan")]
         roads50 = df['ROAD_NAME'].unique()
         df = df.loc[df['ROAD_NAME'].isin(roads50[:groups])]
-        print(f"SHJAPE = {df.shape}")
         header_df = df.groupby(pivotal_cols[:2])[cols].agg({
             'SITE_ID': 'first',
             'DESCRIPTION': 'sum',
@@ -98,6 +97,5 @@ def _load_matrix_df():
 
     # df = pd.DataFrame(rows)
     df = pl.DataFrame(rows)
-    print("WHATS>?!")
     return df
     

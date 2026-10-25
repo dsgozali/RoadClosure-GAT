@@ -1,51 +1,92 @@
-# import pandas as pd
-# import matplotlib.pyplot as plt
-# from matplotlib.backends.backend_pdf import PdfPages
-
-# df = pd.DataFrame({
-#    "Name": ["Alice", "Bob", "Charlie"],
-#    "Age": [25, 30, 35],
-#    "City": ["New York", "Los Angeles", "Chicago"]
-# })
-
-# def render_pdf():
-#     fig, ax = plt.subplots(figsize=(8, 4))
-#     ax.axis('tight')
-#     ax.axis('off')
-#     table = ax.table(cellText=df.values, colLabels=df.columns, loc='center')
-#     pdf = PdfPages("output.pdf")
-#     pdf.savefig(fig, bbox_inches='tight')
-#     pdf.close()
-
 import streamlit as st
-import pandas as pd
+import polars as pl
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from io import BytesIO
 
 from utils.apis import _load_matrix_df
-from utils.consts import LEGEND_TEXT
-from pages.matrix import _build_matrix_group, _style_matrix
+from pages.matrix import _build_matrix_group, display_matrix
 
+# def build_street_group(street_name, direction, df, HOUR_LABELS):
+#     """
+#     Building the matrix into lane closure logic and weekdays and weekends.
+#     """
+#     day_names = ["Weekday", "SAT", "SUN"]
+#     weekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI']
+#     weekends = day_names[1:]
+
+#     HOUR_IDS = [
+#         f"{'-'.join(format_hour(x, idx) for idx, x in enumerate(label.split(' to ')))}" 
+#         for label in HOUR_LABELS
+#     ]
+#     if "ROAD_NAME" in df.columns and "GAZETTAL_DIRECTION" in df.columns:
+#         filtered = df.filter((pl.col("ROAD_NAME") == street_name) & (pl.col("GAZETTAL_DIRECTION") == direction)).clone()
+#         if filtered.is_empty():
+#             rows = []
+#             for day_name in day_names:
+#                 record = {"Direction": direction, "Day-HR": day_name}
+#                 for hour in HOUR_IDS:
+#                     record[hour] = 1
+#                 rows.append(record)
+#             return pl.DataFrame(rows)
+#         rows = []
+#         unique_descs = filtered["DESCRIPTION"].unique().to_list()
+
+#             temp_f = filtered.filter(pl.col("DESCRIPTION") == desc)
+#             for day in day_names:
+#                 if "HOUR" in filtered.columns:
+#                     temp_f = temp_f.select('HOUR', pl.exclude('HOUR'))
+
+#                 target_cols = [day] if day in weekends else weekdays
+#                 values = temp_f.with_columns(
+#                     pl.concat_list(target_cols).alias("DAYNAMES")
+#                 )
+#                 values = values.with_columns(pl.col("DAYNAMES").map_elements(lane_closure_logic))
+#                 # values = filtered.loc[:, [day] if day in weekends else weekdays].apply(lane_closure_logic, axis=1)
+
+#                 record = {"Direction": direction, "Day-HR": day}
+#                 for hour_id, label in zip(HOUR_IDS, HOUR_LABELS):
+#                     # if label in values:
+#                     if label in values['HOUR']:
+#                         # Simple heuristic NEED integration with road inventory to identify the road type.
+#                         vol_item = (values.filter(pl.col("HOUR") == label).select("DAYNAMES").item())
+#                         lanes = int(vol_item // 1000) + 1 if vol_item else 0
+#                         record[hour_id] = lanes if lanes else 0
+#                     else:
+#                         record[hour_id] = 0
+#             rows.append(record)
+#         temp = pl.DataFrame(rows)
+#         return temp
+#     temp = pl.DataFrame({"Direction": direction, "Day-HR": ["Weekday", "Saturday", "Sunday"]})
+#     return temp
+
+@st.cache_data
 def pl_to_mat(df):
-    street_names = sorted(set(df["ROAD_NAME"].dropna().tolist())) if "ROAD_NAME" in df.columns else ["Aster Road"]
-    direction_values = sorted(set(df["GAZETTAL_DIRECTION"].dropna().tolist())) if "GAZETTAL_DIRECTION" in df.columns else ["WB", "EB"]
+    street_names = sorted(set(df["ROAD_NAME"].drop_nulls().to_list())) if "ROAD_NAME" in df.columns else ["Aster Road"]
+    direction_values = sorted(set(df["GAZETTAL_DIRECTION"].drop_nulls().to_list())) if "GAZETTAL_DIRECTION" in df.columns else ["WB", "EB"]
+    HOUR_LABELS = df['HOUR'].unique()
 
-    descs = sorted(set(df["DESCRIPTION"].dropna().tolist()))
-    
+    mat_dfs = pl.DataFrame()
+    i = 0
     for street_name in street_names:
-        matrix = pd.DataFrame()
-        left_matrix = _build_matrix_group(street_name, direction_values[0], df)
-        right_matrix = _build_matrix_group(street_name, direction_values[1] if len(direction_values) > 1 else direction_values[0], df)
+        filtered_df = df.filter(pl.col("ROAD_NAME") == street_name)
+        unique_descs = filtered_df["DESCRIPTION"].unique().to_list()
+        for desc in unique_descs:
+            left_matrix = _build_matrix_group(desc, direction_values[0], df, HOUR_LABELS)
+            right_matrix = _build_matrix_group(desc, direction_values[1] if len(direction_values) > 1 else direction_values[0], df, HOUR_LABELS)
 
-        matrix = pd.concat([left_matrix, right_matrix], ignore_index=True)
-        st.markdown(f"#### {street_name}")
-        st.dataframe(_style_matrix(matrix), width="stretch", hide_index=True)
+            matrix = pl.concat([left_matrix, right_matrix])
+            styled, column_config = display_matrix(matrix)
+            html_table = styled.as_raw_html(inline_css=True, all_important=True)
 
-        st.info(LEGEND_TEXT)
-        st.divider()
-    
-    
+            if i < 10:
+                st.markdown(f"#### {street_name} - {desc}")
+                st.markdown(html_table, unsafe_allow_html=True)
+            
+            mat_dfs = pl.concat([mat_dfs, matrix])
+            i+=1
+
+    return mat_dfs
 
 def dataframe_to_pdf(dataframe):
     """
@@ -78,23 +119,24 @@ def dataframe_to_pdf(dataframe):
     buffer.seek(0)
     return buffer
 
-
 def render_pdf():
     st.title("Exportable PDF View")
     df = _load_matrix_df()
 
-    # Display DataFrame
-    st.dataframe(df)
+    mat_dfs = pl_to_mat(df)
 
     # Button to export PDF
     if st.button("Export to PDF"):
-        pdf_buffer = dataframe_to_pdf(df)
+        pdf_buffer = dataframe_to_pdf(mat_dfs)
         st.download_button(
             label="Download PDF",
             data=pdf_buffer,
             file_name="dataframe_export.pdf",
             mime="application/pdf"
         )
+
+    # # Display DataFrame
+    # st.dataframe(df)
 
 
 
