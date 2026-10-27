@@ -69,7 +69,7 @@ def _load_matrix_df():
         try:
             df = pd.read_excel(workbook_path)
             df = pl.from_pandas(df)
-            df = df.head(5000)
+            # df = df.head(5000)
             df.columns = [str(col).strip() for col in df.columns]
             if {"ROAD_NAME", "GAZETTAL_DIRECTION", "HOUR"}.issubset(set(df.columns)):
                 return df

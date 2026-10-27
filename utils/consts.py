@@ -13,6 +13,11 @@ centerpt = [-27.454178165442357, 153.03858515277315]
 groups = 20
 pivotal_cols = ['ROAD_NAME', 'GAZETTAL_DIRECTION', 'HOUR']
 num_cols = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN', 'WEEKEND_AVERAGE']
+
+day_names = ["Weekday", "SAT", "SUN"]
+weekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI']
+weekends = day_names[1:]
+
 cols = ['SITE_ID', 'SITE_DISTANCE', 'DESCRIPTION', 'ROAD_SECTION_ID', 'LATITUDE', 'LONGITUDE', 'TDIST_START', 'TDIST_END', 'DISTRICT', 'DISTRICT_NAME', 'REGION', 'REGION_NAME']
 
 hour_to_pm = {x: i for i, x in enumerate(range(13, 25), start=1)}

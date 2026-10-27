@@ -5,7 +5,7 @@ from pandas.io.formats.style import Styler
 from great_tables import style, loc, GT
 
 
-from utils.consts import COLOR_MAP, LEGEND_TEXT, HOUR_LABELS, hour_to_pm
+from utils.consts import COLOR_MAP, LEGEND_TEXT, HOUR_LABELS, hour_to_pm, day_names, weekdays, weekends
 from utils.miscs import format_hour, export_df_to_pdf
 from utils.apis import lane_closure_logic, _load_matrix_df
 
@@ -59,9 +59,9 @@ def _build_matrix_group(description, direction, df, HOUR_LABELS):
     """
     Building the matrix into lane closure logic and weekdays and weekends.
     """
-    day_names = ["Weekday", "SAT", "SUN"]
-    weekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI']
-    weekends = day_names[1:]
+    # day_names = ["Weekday", "SAT", "SUN"]
+    # weekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI']
+    # weekends = day_names[1:]
 
     HOUR_IDS = [
         f"{'-'.join(format_hour(x, idx) for idx, x in enumerate(label.split(' to ')))}" 
@@ -151,7 +151,11 @@ def render_matrix():
     """
     Render matrix-like table for visualizing the number of lanes to be opened (or closed).
     """
-    df = _load_matrix_df()
+    # df = _load_matrix_df()
+    if "raw_data" not in st.session_state:
+        df = _load_matrix_df
+    else:
+        df = st.session_state.raw_data
     if df.is_empty():
         st.warning("No matrix data was available to render.")
         return
@@ -164,6 +168,9 @@ def render_matrix():
     if not direction_values:
         direction_values = ["WB", "EB"]
 
+    # # search_term = st.text_input("Search by Road Name:", "")
+    # # tt = df.filter(pl.col("ROAD_NAME").str.contains(search_term))
+    # print(tt.head())
     total_pages = len(street_names)
 
     page = st.number_input(
