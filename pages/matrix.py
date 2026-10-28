@@ -94,7 +94,9 @@ def _build_matrix_group(description, direction, df, HOUR_LABELS):
                 # if label in values:
                 if label in values['HOUR']:
                     # Simple heuristic NEED integration with road inventory to identify the road type.
-                    vol_item = (values.filter(pl.col("HOUR") == label).select("DAYNAMES").item())
+                    vol_df = values.filter(pl.col("HOUR") == label).select("DAYNAMES").mean()
+                    print(f"DF = {vol_df}")
+                    vol_item = (vol_df.item())
                     lanes = int(vol_item // 1000) + 1 if vol_item else 0
                     record[hour_id] = lanes if lanes else 0
                 else:
@@ -147,6 +149,105 @@ def display_matrix(frame: pl.DataFrame) -> None:
     styled = apply_value_coloring(frame, hour_columns, COLOR_MAP)
     return styled, column_config
 
+def _display_hour_label(hour_label):
+    return "-".join(
+        format_hour(value, index)
+        for index, value in enumerate(hour_label.split(" to "))
+    )
+
+def _get_cell_traceability(df, street_name, description, direction, day_name, display_hour):
+    """Return the source values and calculation used for one displayed matrix cell."""
+    matching_rows = df.filter(
+        (pl.col("ROAD_NAME") == street_name)
+        & (pl.col("DESCRIPTION") == description)
+        & (pl.col("GAZETTAL_DIRECTION") == direction)
+    )
+    if matching_rows.is_empty():
+        return {
+            "source": "No matching source rows; the matrix fallback value is used.",
+            "input_values": [],
+            "percentile_85": None,
+            "lane_value": 1,
+        }
+
+    raw_hour = next(
+        (
+            hour
+            for hour in matching_rows["HOUR"].unique().to_list()
+            if _display_hour_label(hour) == display_hour
+        ),
+        None,
+    )
+    if raw_hour is None:
+        return {
+            "source": "No source row exists for this hour.",
+            "input_values": [],
+            "percentile_85": None,
+            "lane_value": 0,
+        }
+
+    hour_rows = matching_rows.filter(pl.col("HOUR") == raw_hour)
+    target_columns = [day_name] if day_name in weekends else weekdays
+    available_columns = [column for column in target_columns if column in hour_rows.columns]
+    if not available_columns:
+        return {
+            "source": "The source data does not contain the required day columns.",
+            "input_values": [],
+            "percentile_85": None,
+            "lane_value": None,
+        }
+
+    input_values = [
+        value
+        for column in available_columns
+        for value in hour_rows[column].to_list()
+        if value is not None
+    ]
+    if not input_values:
+        return {
+            "source": "The source rows contain no values for this day and hour.",
+            "input_values": [],
+            "percentile_85": None,
+            "lane_value": 0,
+        }
+
+    percentile_85 = lane_closure_logic(pl.Series(input_values))
+    lane_value = int(percentile_85 // 1000) + 1 if percentile_85 else 0
+    return {
+        "source": "Workbook traffic values",
+        "input_values": input_values,
+        "percentile_85": percentile_85,
+        "lane_value": lane_value,
+    }
+
+def _selected_cell_from_event(event):
+    cells = event.selection.cells
+    if not cells:
+        return None
+    row_index, column_name = cells[0]
+    return int(row_index), column_name
+
+def _render_cell_traceability(trace):
+    with st.sidebar:
+        st.subheader("Details")
+        st.write(f"**Road:** {trace['street']}")
+        st.write(f"**Description:** {trace['description']}")
+        st.write(f"**Direction:** {trace['direction']}")
+        st.write(f"**Day type:** {trace['day_name']}")
+        st.write(f"**Hour:** {trace['hour']}")
+        st.write(f"**Displayed lanes:** {trace['display_value']}")
+
+        if trace["percentile_85"] is None:
+            st.write("**Calculation:** No percentile calculation was available.")
+        else:
+            st.write(f"**Input traffic values:** {trace['input_values']}")
+            st.write(f"**85th percentile:** {trace['percentile_85']}")
+            if trace["percentile_85"]:
+                formula = f"int({trace['percentile_85']} // 1000) + 1"
+            else:
+                formula = "0 (the 85th percentile is zero)"
+            st.write(f"**Lane calculation:** {formula} = {trace['lane_value']}")
+
 def render_matrix():
     """
     Render matrix-like table for visualizing the number of lanes to be opened (or closed).
@@ -196,6 +297,7 @@ def render_matrix():
 
     filtered_df = df.filter(pl.col("ROAD_NAME") == selected_street)
     descs = sorted(set(filtered_df["DESCRIPTION"].drop_nulls().to_list()))
+    selected_trace = None
 
     for street_desc in descs:
         matrix = pl.DataFrame()
@@ -204,13 +306,56 @@ def render_matrix():
 
         matrix = pl.concat([left_matrix, right_matrix])
         st.markdown(f"#### {selected_street} - {street_desc}")
-        # st.dataframe(_style_matrix(matrix), width="stretch", hide_index=True)
+        hour_columns = [column for column in matrix.columns if column not in {"Direction", "Day-HR"}]
+        display_df = matrix.to_pandas()
 
-        styled, column_config = display_matrix(matrix)
-        html_table = styled.as_raw_html(inline_css=True, all_important=True)
+        def color_value(value):
+            number = _safe_int(value)
+            color = COLOR_MAP.get(number, "#ffffff")
+            return f"background-color: {color}; color: #1f2937; font-weight: bold;"
 
-        # Display in Streamlit
-        st.markdown(html_table, unsafe_allow_html=True)
+        styled_df = display_df.style.map(color_value, subset=hour_columns).format(
+            "{:.0f}", subset=hour_columns, na_rep=""
+        )
+        event = st.dataframe(
+            styled_df,
+            hide_index=True,
+            width="stretch",
+            on_select="rerun",
+            selection_mode="single-cell",
+            key=f"matrix-{selected_street}-{street_desc}",
+        )
+        selected_cell = _selected_cell_from_event(event)
+        if selected_cell is not None:
+            row_index, column_name = selected_cell
+            if column_name in hour_columns and 0 <= row_index < matrix.height:
+                row = matrix.row(row_index, named=True)
+                direction = row["Direction"]
+                day_name = row["Day-HR"]
+                details = _get_cell_traceability(
+                    filtered_df,
+                    selected_street,
+                    street_desc,
+                    direction,
+                    day_name,
+                    column_name,
+                )
+                selected_trace = {
+                    "street": selected_street,
+                    "description": street_desc,
+                    "direction": direction,
+                    "day_name": day_name,
+                    "hour": column_name,
+                    "display_value": row[column_name],
+                    **details,
+                }
 
         st.info(LEGEND_TEXT)
         st.divider()
+
+    if selected_trace is not None:
+        _render_cell_traceability(selected_trace)
+    else:
+        with st.sidebar:
+            st.subheader("Cell computation details")
+            st.caption("Select a lane-value cell in the table to view its source values and calculation.")

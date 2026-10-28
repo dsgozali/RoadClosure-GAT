@@ -1,2 +1,8 @@
 __pycache__/
 DEV_*
+archives/
+.streamlit/
+.env
+*.xlsx
+*.csv
+*.xls

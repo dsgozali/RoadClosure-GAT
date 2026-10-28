@@ -72,8 +72,8 @@ def pl_to_mat(df):
         filtered_df = df.filter(pl.col("ROAD_NAME") == street_name)
         unique_descs = filtered_df["DESCRIPTION"].unique().to_list()
         for desc in unique_descs:
-            left_matrix = _build_matrix_group(desc, direction_values[0], df, HOUR_LABELS)
-            right_matrix = _build_matrix_group(desc, direction_values[1] if len(direction_values) > 1 else direction_values[0], df, HOUR_LABELS)
+            left_matrix = _build_matrix_group(desc, direction_values[0], filtered_df, HOUR_LABELS)
+            right_matrix = _build_matrix_group(desc, direction_values[1] if len(direction_values) > 1 else direction_values[0], filtered_df, HOUR_LABELS)
 
             matrix = pl.concat([left_matrix, right_matrix])
             styled, column_config = display_matrix(matrix)
@@ -121,7 +121,11 @@ def dataframe_to_pdf(dataframe):
 
 def render_pdf():
     st.title("Exportable PDF View")
-    df = _load_matrix_df()
+    # df = _load_matrix_df()
+    if "raw_data" not in st.session_state:
+        df = _load_matrix_df
+    else:
+        df = st.session_state.raw_data
 
     mat_dfs = pl_to_mat(df)
 
