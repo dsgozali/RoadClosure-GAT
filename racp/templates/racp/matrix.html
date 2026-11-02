@@ -1,0 +1,48 @@
+{% extends "racp/base.html" %}
+{% load racp_tags %}
+{% block title %}Table View | Road Access Closure Permit{% endblock %}
+{% block content %}
+  <header class="page-heading">
+    <p class="eyebrow">Access-hour matrix</p>
+    <h1>Road Closure Table View</h1>
+    <p>Choose a road, then select an hourly value to display the calculation trace in the left panel.</p>
+  </header>
+  <form method="get" class="filters">
+    <input type="hidden" name="region" value="{{ region }}">
+    <label for="road">Road</label>
+    <select id="road" name="road">
+      {% for road in roads %}
+      <option value="{{ road }}" {% if road == selected_road %}selected{% endif %}>{{ road }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Show road</button>
+  </form>
+  {% if matrices %}
+    {% for matrix in matrices %}
+      <section class="matrix-section">
+        <h2>{{ selected_road }} — {{ matrix.description }}</h2>
+        <div class="table-wrap">
+          <table class="matrix-table">
+            <thead>
+              <tr><th>Direction</th><th>Day-HR</th>{% for hour in matrix.columns|slice:"2:" %}<th>{{ hour }}</th>{% endfor %}</tr>
+            </thead>
+            <tbody>
+              {% for row in matrix.display_rows %}
+              <tr>
+                <th scope="row">{{ row.Direction }}</th><td>{{ row|get_item:"Day-HR" }}</td>
+                {% for cell in row.cells %}
+                  <td class="value-cell" style="background-color: {{ cell.color }}">{% if cell.url %}<a href="{{ cell.url }}" aria-label="Show calculation for {{ row.Direction }} {{ row|get_item:"Day-HR" }} {{ cell.hour }}">{{ cell.value }}</a>{% else %}{{ cell.value }}{% endif %}</td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    {% endfor %}
+    <p class="legend">{{ legend_text }}</p>
+    <a class="button secondary" href="{% url 'racp:pdf_download' %}?region={{ region|urlencode }}&amp;road={{ selected_road|urlencode }}">Download matrix PDF</a>
+  {% else %}
+    <div class="empty-state">No matrix data is available for the selected road.</div>
+  {% endif %}
+{% endblock %}

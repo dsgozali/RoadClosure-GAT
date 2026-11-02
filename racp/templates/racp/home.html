@@ -1,0 +1,35 @@
+{% extends "racp/base.html" %}
+{% load static %}
+{% block title %}Home | Road Access Closure Permit{% endblock %}
+{% block head %}
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+{% endblock %}
+{% block content %}
+  <header class="page-heading">
+    <p class="eyebrow">Road access closure permit</p>
+    <h1>Home — Map View</h1>
+    <p>Explore road coordinates and average weekday/weekend traffic values.</p>
+  </header>
+  {% if map_points %}
+    <div id="road-map" class="map" role="region" aria-label="Road traffic map"></div>
+    <p class="muted">Showing up to {{ road_count }} mapped roads for the selected region.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Road Name</th><th>Latitude</th><th>Longitude</th><th>Weekdays</th><th>Saturday</th><th>Sunday</th></tr></thead>
+        <tbody>
+          {% for point in map_points|slice:":20" %}
+          <tr>
+            <td>{{ point.road }}</td><td>{{ point.latitude|floatformat:5 }}</td><td>{{ point.longitude|floatformat:5 }}</td>
+            <td>{{ point.weekdays|floatformat:2 }}</td><td>{{ point.saturday|floatformat:2 }}</td><td>{{ point.sunday|floatformat:2 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {{ map_points_json|json_script:"road-map-points" }}
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="{% static 'racp/map.js' %}"></script>
+  {% else %}
+    <div class="empty-state">No road geometry and traffic data could be matched. Check the configured workbook and shapefile.</div>
+  {% endif %}
+{% endblock %}

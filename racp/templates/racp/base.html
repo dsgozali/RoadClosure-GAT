@@ -1,0 +1,69 @@
+{% load static %}
+<!doctype html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Road Access Closure Permit{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'racp/app.css' %}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="{% url 'racp:home' %}">Road Access<br>Closure Permit</a>
+      <form method="get" action="{% url 'racp:home' %}" class="region-form">
+        <label for="region">Region</label>
+        <select id="region" name="region" onchange="this.form.submit()">
+          <option value="">All available regions</option>
+          {% for item in regions %}
+          <option value="{{ item }}" {% if item == region %}selected{% endif %}>{{ item }}</option>
+          {% endfor %}
+        </select>
+      </form>
+      <nav aria-label="Main navigation">
+        <a href="{% url 'racp:home' %}?region={{ region|urlencode }}">Home / Map</a>
+        <a href="{% url 'racp:matrix' %}?region={{ region|urlencode }}">Table View</a>
+        <a href="{% url 'racp:pdf' %}?region={{ region|urlencode }}">PDF View</a>
+      </nav>
+      <section class="trace-panel" aria-live="polite">
+        <h2>Traceability details</h2>
+        {% if selected_trace %}
+          <dl>
+            <dt>Road</dt><dd>{{ selected_trace.road }}</dd>
+            <dt>Description</dt><dd>{{ selected_trace.description }}</dd>
+            <dt>Direction</dt><dd>{{ selected_trace.direction }}</dd>
+            <dt>Day type</dt><dd>{{ selected_trace.day }}</dd>
+            <dt>Hour</dt><dd>{{ selected_trace.hour }}</dd>
+            <dt>Displayed lanes</dt><dd>{{ selected_trace.display_value }}</dd>
+            <dt>Source</dt><dd>{{ selected_trace.source }}</dd>
+          </dl>
+          {% if selected_trace.percentile_85 is not None %}
+            <p><strong>Traffic inputs:</strong> {{ selected_trace.input_values|join:", " }}</p>
+            <p><strong>85th percentile:</strong> {{ selected_trace.percentile_85|floatformat:2 }}</p>
+            {% if selected_trace.percentile_85 %}
+              <p><strong>Lane calculation:</strong> int({{ selected_trace.percentile_85|floatformat:2 }} // 1000) + 1 = {{ selected_trace.lane_value }}</p>
+            {% else %}
+              <p><strong>Lane calculation:</strong> zero percentile results in 0 lanes.</p>
+            {% endif %}
+          {% else %}
+            <p>No percentile calculation is available for this cell.</p>
+          {% endif %}
+        {% else %}
+          <p>Select a numeric hour cell in Table View to inspect its source values and calculation.</p>
+        {% endif %}
+      </section>
+    </aside>
+    <main class="content">
+      {% if messages %}
+        {% for message in messages %}<p class="notice">{{ message }}</p>{% endfor %}
+      {% endif %}
+      {% block content %}{% endblock %}
+      <footer class="disclaimer">
+        This exploratory application is not an official permit decision, traffic-management plan, safety assessment, or engineering recommendation.
+        Verify source data and outputs with the responsible road authority and qualified professionals before operational use.
+      </footer>
+    </main>
+  </div>
+</body>
+</html>
