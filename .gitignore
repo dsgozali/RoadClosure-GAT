@@ -3,5 +3,5 @@ __pycache__/
 *_TEST.py
 db.sqlite3
 *.csv
-
 .env
+
