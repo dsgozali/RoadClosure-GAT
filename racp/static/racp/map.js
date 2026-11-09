@@ -1,23 +1,42 @@
+function parseRoadData(text) {
+  let value = text.trim();
+
+  for (let i = 0; i < 3 && typeof value === "string"; i++) {
+    value = value.replace(/\bNaN\b/g, "null");
+    try {
+      value = JSON.parse(value);
+    } catch (e) {
+      value = value
+          .replace(/^"|"$/g, "")
+          .replace(/\\+"/g, '"');
+      value = JSON.parse(value);
+    }
+  }
+
+  if (!Array.isArray(value)) {
+    value = [];
+  }
+
+  return value;
+}
+
+
 (() => {
   const pointsElement = document.getElementById("road-map-points");
   const mapElement = document.getElementById("road-map");
   if (!pointsElement || !mapElement || !window.L) return;
-  // let ptsStr = pointsElement.textContent.replace(/\bNaN\b/g, "null");
-
-  let points = JSON.parse(pointsElement.textContent);//JSON.parse(ptsStr);
-  console.log(`points = ${typeof points}`)
-  console.log(points);
+  const points = parseRoadData(pointsElement.textContent);
   if (!points.length) return;
   const center = [
     -27.454178165442357, 153.03858515277315
   ];
   const map = L.map(mapElement).setView(center, 7);
   L.tileLayer(
-    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
     attribution: "&copy; OpenStreetMap contributors",
     maxZoom: 19,
+    referrerPolicy: "strict-origin-when-cross-origin",
   }).addTo(map);
-  console.log(typeof points)
   points.forEach((point) => {
     const popup = document.createElement("div");
     const road = document.createElement("strong");

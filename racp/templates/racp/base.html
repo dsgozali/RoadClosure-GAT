@@ -11,7 +11,7 @@
 <body>
   <div class="shell">
     <aside class="sidebar">
-      <a class="brand" href="{% url 'racp:home' %}">Road Access<br>Closure Permit</a>
+      <a class="brand" href="{% url 'racp:home' %}">General Access<br>Times</a>
       <form method="get" action="{% url 'racp:home' %}" class="region-form">
         <label for="region">Region</label>
         <select id="region" name="region" onchange="this.form.submit()">
@@ -27,7 +27,7 @@
         <a href="{% url 'racp:pdf' %}?region={{ region|urlencode }}">PDF View</a>
       </nav>
       <section class="trace-panel" aria-live="polite">
-        <h2>Traceability details</h2>
+        <h2>Audit Trail</h2>
         {% if selected_trace %}
           <dl>
             <dt>Road</dt><dd>{{ selected_trace.road }}</dd>
@@ -60,8 +60,12 @@
       {% endif %}
       {% block content %}{% endblock %}
       <footer class="disclaimer">
-        This exploratory application is not an official permit decision, traffic-management plan, safety assessment, or engineering recommendation.
-        Verify source data and outputs with the responsible road authority and qualified professionals before operational use.
+        <strong>NOTES:</strong> <br>
+        The above Lane Closure 'General Access Times' are to be used as a guide only and does not guarantee approval.<br>
+        TMR reserves the right to review and assess applications on a case by case basis. <br>
+        Where contraflow is required to perform works, TMR will consider this on a case by case basis.<br>
+        No closures should occur between the hours of 06:30-09:00 and 14:30-18:30 on weekdays within 100m of a TMR signalised intersection. <br>
+        * Generally lane closures are not permitted during these periods. Additional justification/ reasoning will be required to support a lane closure during these periods. <br>
       </footer>
     </main>
   </div>

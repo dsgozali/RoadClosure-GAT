@@ -3,6 +3,9 @@ from ..services import get_regions, get_road_data, get_road_names, load_traffic_
 
 def page_context(request):
     frame = load_traffic_data()
+    print(f"HEAD FRAME")
+    print(frame.head())
+    # print(frame.shape)
     region = request.GET.get("region", "").strip()
     regions = get_regions(frame)
     if region not in regions:

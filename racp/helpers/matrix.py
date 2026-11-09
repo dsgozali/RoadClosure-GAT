@@ -12,11 +12,11 @@ def matrix(request):
     context = page_context(request)
     roads = context["roads"]
     selected_road = request.GET.get("road", "")
+    selected_view = request.GET.get("show-volume", "off")
     if selected_road not in roads and roads:
-        selected_road = roads[0]
-
-    matrices = build_matrix(context["frame"], selected_road) if selected_road else []
-    print(f"matrix function = {matrices}")
+        selected_road = roads[-1]
+    print(f"SELECTED = {selected_road}")
+    matrices = build_matrix(context["frame"], selected_road, selected_view) if selected_road else []
     for matrix_data in matrices:
         matrix_data["display_rows"] = []
         for row in matrix_data["rows"]:

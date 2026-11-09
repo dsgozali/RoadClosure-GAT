@@ -3,9 +3,8 @@
 {% block title %}Table View | Road Access Closure Permit{% endblock %}
 {% block content %}
   <header class="page-heading">
-    <p class="eyebrow">Access-hour matrix</p>
-    <h1>Road Closure Table View</h1>
-    <p>Choose a road, then select an hourly value to display the calculation trace in the left panel.</p>
+    <h1>General Access Times — Table View</h1>
+    <p>The value on the tables offers recommended number of lanes to remain open by time of day and direction. </p>
   </header>
   <form method="get" class="filters">
     <input type="hidden" name="region" value="{{ region }}">
@@ -16,7 +15,12 @@
       {% endfor %}
     </select>
     <button type="submit">Show road</button>
+    <label class="switch">
+      <input type="checkbox" id="show-volume" name="show-volume" {% if selected_view == "on" %}checked{% endif %}>
+      <span class="slider round">Show Volume</span>
+    </label>
   </form>
+  <p class="legend">{{ legend_text }}</p>
   {% if matrices %}
     {% for matrix in matrices %}
       <section class="matrix-section">
@@ -40,7 +44,6 @@
         </div>
       </section>
     {% endfor %}
-    <p class="legend">{{ legend_text }}</p>
     <a class="button secondary" href="{% url 'racp:pdf_download' %}?region={{ region|urlencode }}&amp;road={{ selected_road|urlencode }}">Download matrix PDF</a>
   {% else %}
     <div class="empty-state">No matrix data is available for the selected road.</div>

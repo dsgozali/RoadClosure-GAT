@@ -1,1 +1,7 @@
 __pycache__/
+*.sql
+*_TEST.py
+db.sqlite3
+*.csv
+
+.env

@@ -9,7 +9,7 @@ from ..services import build_map_points
 def home(request):
     context = page_context(request)
     points = build_map_points(context["frame"], context["region"] or None)
-    print(f"points = {context}")
+    # print(f"points = {context}")
     context.update(
         {
             "map_points": points,

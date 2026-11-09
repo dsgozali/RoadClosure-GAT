@@ -3,8 +3,7 @@
 {% block title %}PDF View | Road Access Closure Permit{% endblock %}
 {% block content %}
   <header class="page-heading">
-    <p class="eyebrow">Export</p>
-    <h1>PDF View</h1>
+    <h1>General Access Times — PDF View</h1>
     <p>Preview the access matrix for the selected road or download it as a PDF.</p>
   </header>
   <form method="get" class="filters">
@@ -15,10 +14,14 @@
       <option value="{{ road }}" {% if road == selected_road %}selected{% endif %}>{{ road }}</option>
       {% endfor %}
     </select>
+    <label class="switch">
+      <input type="checkbox" id="show-export-volume" name="show-export-volume">
+      <span class="slider round">Show Export Volume</span>
+    </label>
     <button type="submit">Preview</button>
   </form>
   <a class="button" href="{% url 'racp:pdf_download' %}?region={{ region|urlencode }}&amp;road={{ selected_road|urlencode }}">Export PDF</a>
-  <a class="button" href="{% url 'racp:pdf_download' %}?region={{ region|urlencode }}&amp;road={{ selected_road|urlencode }}">Export All</a>
+  <a class="button" href="{% url 'racp:pdf_download' %}?region={{ region|urlencode }}&amp;roadall={{ selected_road|urlencode }}">Export All</a>
   {% for matrix in matrices %}
     <section class="matrix-section">
       <h2>{{ selected_road }} — {{ matrix.description }}</h2>
