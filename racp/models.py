@@ -11,6 +11,7 @@ from django.db.models import (
     CharField,
     F,
     Sum,
+    Avg,
     Value,
     When
 )
@@ -198,7 +199,7 @@ def get_TA_volume(sites, year=2025):
             "day_type",
         ) \
         .annotate(
-            total_vol=Sum("sum_volume"),
+            total_vol=Avg("sum_volume"),
         ) \
         .order_by(
             "ta_road_site_id",

@@ -26,13 +26,16 @@ def pdf_view(request):
 def pdf_download(request):
     context = page_context(request)
     selected_road = request.GET.get("road", "")
+    # if ":" in selected_road:
+    #     selected_road = selected_road.split(": ")[1]
     roadall = request.GET.get("roadall", "")
-    show_vol = request.GET.get("show-export-volume", "")
-    print(f"SHOW = {show_vol}")
+    # show_vol = request.GET.get("show-export-volume", "")
+    show_vol = (request.GET.get("show-export-volume") == "1")
     if selected_road not in context["roads"]:
         selected_road = ""
     frame = get_road_data(context["frame"], context["region"] or None)
     roads = [selected_road] if selected_road else get_road_names(frame)
+    # roads = [new_road.split(": ")[1] for new_road in roads if ":" in new_road else new_road]
     matrices = [matrix_data for road in roads for matrix_data in build_matrix(frame, road, show_vol)]
     if selected_road:
         pdf = create_matrix_pdf(matrices, selected_road or None)

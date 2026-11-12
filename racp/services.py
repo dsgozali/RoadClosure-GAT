@@ -101,6 +101,7 @@ def _sample_traffic_data():
                 }
                 rows.append(
                     {
+                        "ROAD_Details": f"AA: {road}",
                         "ROAD_NAME": road,
                         "DESCRIPTION": "Sample access",
                         "GAZETTAL_DIRECTION": direction,
@@ -138,13 +139,13 @@ def load_snowflake_data(year=2025):
     # print(gpd_pt.crs)
 
     comb_gpd = ckdnearest(gpd_pt, roads)
-    # road_cols = ['street', 'road_name', 'carrway', 'shape_Leng', 'ROAD_NAM_1', 'DESC', 'SITE_ID']
-    pt_cols = list(gpd_pt.columns)
-    print(f"LIST = {pt_cols}")
-    # comb_gpd = gpd.sjoin_nearest(gpd_pt.to_crs("EPSG:7856"), roads.to_crs("EPSG:7856"), how="left", distance_col="dist_m")
-    print(comb_gpd.columns)
-    # comb_gpd = comb_gpd[pt_cols + road_cols].to_crs("EPSG:4326")
-    print("-"*60)
+    # # road_cols = ['street', 'road_name', 'carrway', 'shape_Leng', 'ROAD_NAM_1', 'DESC', 'SITE_ID']
+    # pt_cols = list(gpd_pt.columns)
+    # print(f"LIST = {pt_cols}")
+    # # comb_gpd = gpd.sjoin_nearest(gpd_pt.to_crs("EPSG:7856"), roads.to_crs("EPSG:7856"), how="left", distance_col="dist_m")
+    # print(comb_gpd.columns)
+    # # comb_gpd = comb_gpd[pt_cols + road_cols].to_crs("EPSG:4326")
+    # print("-"*60)
 
     points = list(comb_gpd['point_id'].unique())
     tas = TaSite.objects.using(DB_ALIAS['tas']).select_related("point_id").filter(point_id__in=points).values()
@@ -159,24 +160,24 @@ def load_snowflake_data(year=2025):
     tas_p = tasp.join(tas, left_on="site_id_id", right_on="site_id", how='inner')
     traff_wb = pd.read_excel(TRAFFIC_WORKBOOK)
     tas_p = tas_p.to_pandas()
-    print(f"TASP = {tas_p.columns}")
+    # print(f"TASP = {tas_p.columns}")
     tas_p = tas_p.merge(traff_wb[['SITE_ID', 'ROAD_NAME', 'ROAD_SECTION_ID']], left_on="site_id_id", right_on="SITE_ID", how="right")
 
-    print("-"*60)
-    print(tas_p.columns)
-    # print(comb_gpd.columns)
-    # print("60"*10)
+    # print("-"*60)
+    # print(tas_p.columns)
+    # # print(comb_gpd.columns)
+    # # print("60"*10)
     comb_static = comb_gpd.merge(tas_p, left_on="point_id", right_on="point_id_id", how="inner")
     # print('-'*60 + "\nCOMB_STATIC")
     # print(comb_static.head())
-    print(comb_static.shape)
-    print(comb_static.columns)
+    # print(comb_static.shape)
+    # print(comb_static.columns)
     unique_sites = list(comb_static['site_id_id'].unique())
     ta_vol = get_TA_volume(unique_sites)
 
     frame = pl.DataFrame(list(ta_vol), infer_schema_length=None)
     frame = frame.to_pandas()
-    frame = frame.merge(comb_static[['dist_id_x', 'ROAD_NAME', 'shape_Leng', 'site_id_id', 'site_type', 'description_x']], left_on="ta_road_site_id", right_on="site_id_id", how="inner")
+    frame = frame.merge(comb_static[['dist_id_x', 'ROAD_NAME', 'ROAD_SECTION_ID', 'shape_Leng', 'site_id_id', 'site_type', 'description_x']], left_on="ta_road_site_id", right_on="site_id_id", how="inner")
 
     return frame
     # print(roads)
@@ -207,9 +208,12 @@ def load_traffic_data():
     frame['GAZETTAL_DIRECTION'] = frame['code_t_gazettal_direction'].apply(lambda x: 'AGAINST GAZETTAL' if x == 'TA' else 'GAZETTAL')
     frame['HOUR'] = frame['hour'].apply(lambda x: f"{x} to {x+1}")
     frame['REGION_NAME'] = frame['REGION_ID'].apply(lambda x: DIST_IDS[x])
-    print(f"COLLLL = {frame.columns}")
-    indices = ['SITE_ID', 'code_ta_traffic_class','sk_ta_traffic_class', 'REGION_ID', 'REGION_NAME', 'HOUR','ROAD_NAME', 'site_type', 'DESCRIPTION', 'GAZETTAL_DIRECTION']
-    frame2 = frame.pivot_table(index = indices, columns="day_type", values="total_vol", aggfunc="sum").reset_index()    
+    indices = ['SITE_ID', 'code_ta_traffic_class','sk_ta_traffic_class', 'REGION_ID', 'REGION_NAME', 'HOUR', 'ROAD_SECTION_ID', 'ROAD_NAME', 'site_type', 'DESCRIPTION', 'GAZETTAL_DIRECTION']
+    
+    frame['total_vol'] = frame['total_vol'].apply(lambda x: int(x))
+    frame2 = frame.pivot_table(index = indices, columns="day_type", values="total_vol", aggfunc="mean").reset_index()  
+    frame2['ROAD_Details'] = frame2[['ROAD_SECTION_ID', 'ROAD_NAME']].apply(lambda x: f"{x['ROAD_SECTION_ID']}: {x['ROAD_NAME']}",axis=1)
+    # frame2[WEEKDAYS + WEEKENDS] = (frame2[WEEKDAYS + WEEKENDS].round().astype('Int64'))
     if len(frame2) > 1:
         try:
             frame_columns = [str(column).strip() for column in frame2.columns]
@@ -221,9 +225,11 @@ def load_traffic_data():
                 *WEEKDAYS,
                 *WEEKENDS,
             }
-            # print(f"CHECKING the required = {frame2.head()} {frame_columns}")
+            # print(f"CHECKING the required = {frame2} {frame_columns}\nREQUIRED: {required}{set(frame_columns)}")
             frame = pl.from_dataframe(frame2)
             if required.issubset(set(frame_columns)):
+                print("PASSING REQUIRED")
+                print(frame.head(10))
                 return frame.fill_nan(None)
         except (OSError, ValueError, ImportError) as error:
             raise RuntimeError(f"Could not read traffic workbook {TRAFFIC_WORKBOOK}") from error
@@ -265,7 +271,9 @@ def get_road_data(frame=None, region=None):
 
 def get_road_names(frame=None, region=None):
     selected = get_road_data(frame, region)
-    return sorted(selected["ROAD_NAME"].drop_nulls().unique().to_list())
+    print(f"GET_ROAD_NAMES = {selected}")
+    # selected = selected.with_columns(pl.concat_str([pl.col("ROAD_SECTION_ID"), pl.lit(": "), pl.col("ROAD_NAME")], separator="").alias("ROAD_Details"))
+    return sorted(selected["ROAD_Details"].drop_nulls().unique().to_list())
 
 def lane_closure_logic(x):
     """
@@ -279,7 +287,7 @@ def _quantile(values):
 
 
 def _lane_count(percentile):
-    res = int(percentile // 1000) if percentile else 0
+    res = int(percentile // 1000) + 1 if percentile else 0
     return 4 if res > 4 else res
 
 
@@ -336,12 +344,12 @@ def build_matrix_group(frame, description, direction, show_volume="off"):
 
 def build_matrix(frame, road, show_volume="off"):
     """Assemble direction matrices for every description associated with a road."""
-    road_frame = frame.filter(pl.col("ROAD_NAME") == road)
+    road_frame = frame.filter(pl.col("ROAD_Details") == road)
     descriptions = sorted(road_frame["DESCRIPTION"].drop_nulls().unique().to_list())
     directions = sorted(frame["GAZETTAL_DIRECTION"].drop_nulls().unique().to_list())
     matrices = []
-    print(f"build matrix FRAME = {road_frame} {road}")
-    print(f"desc = {descriptions}")
+    # print(f"build matrix FRAME = {road_frame} {road}")
+    # print(f"desc = {descriptions}")
     for description in descriptions:
         rows = []
         for direction in directions:
@@ -360,7 +368,6 @@ def build_matrix(frame, road, show_volume="off"):
                 "rows": rows,
             }
         )
-    print(f"MAT = {matrices}")
     return matrices
 
 def build_matrix2(frame):
@@ -480,7 +487,7 @@ def build_map_points(frame, region=None):
     # traffic["_weekday_average"] = traffic[weekday_columns].mean()
     traffic = traffic.with_columns(pl.mean_horizontal(weekday_columns).alias("_weekday_average"))
 
-    group_columns = ["ROAD_NAME"]
+    group_columns = ["ROAD_NAME", "ROAD_SECTION_ID"]
     if "SITE_ID" in traffic.columns:
         group_columns.insert(0, "SITE_ID")
     
@@ -489,18 +496,17 @@ def build_map_points(frame, region=None):
         pl.col("SAT").mean().alias("Saturday"),
         pl.col("SUN").mean().alias("Sunday")
     )
-    print(roads.head())
-    print(f"AVERAGES = {averages}")
     averages = averages.to_pandas()
-    print(f"AVERAGES = {averages}")
+    print("AVERAGES = ", sep=" ")
+    print(averages)
+    print('-'*60)
     roads = roads.merge(averages, on="SITE_ID", how="inner")
     roads = roads.groupby("ROAD_NAM_1", as_index=False).first()
     points = []
-    print(f"ROADS = {roads}")
     for _, row in roads.dropna(subset=["LATITUDE", "LONGITUDE"]).drop_duplicates("ROAD_NAM_1").iterrows():
         points.append(
             {
-                "road": str(row["ROAD_NAM_1"]),
+                "road": f"{row['ROAD_SECTION_ID']}: {row['ROAD_NAM_1']}",
                 "latitude": float(row["LATITUDE"]),
                 "longitude": float(row["LONGITUDE"]),
                 "weekdays": round(float(row["Weekdays"]), 2),
@@ -508,7 +514,6 @@ def build_map_points(frame, region=None):
                 "sunday": round(float(row["Sunday"]), 2),
             }
         )
-    print(points)
     return points
 
 def parse_lanes(value):
@@ -570,7 +575,7 @@ def draw_header_footer(canvas, doc):
 
     canvas.restoreState()
 
-def create_matrix_pdf(matrices, road=None, show_volume="off"):
+def create_matrix_pdf(matrices, road=None):
     buffer = BytesIO()
     document = SimpleDocTemplate(
         buffer,
@@ -601,8 +606,6 @@ def create_matrix_pdf(matrices, road=None, show_volume="off"):
             ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#dfe3e8")),
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
             ("FONTSIZE", (0, 0), (-1, -1), 7),
-            # ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#d9534f")]),
-            # ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f7fa")]),
         ]
 
         for r, row in enumerate(table_data[1:], start=1):

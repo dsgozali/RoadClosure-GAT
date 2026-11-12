@@ -12,7 +12,10 @@ def matrix(request):
     context = page_context(request)
     roads = context["roads"]
     selected_road = request.GET.get("road", "")
+    # if ":" in selected_road:
+    #     selected_road = selected_road.split(": ")[1]
     selected_view = request.GET.get("show-volume", "off")
+    # selected_view = (request.GET.get("show-volume") == "1")
     if selected_road not in roads and roads:
         selected_road = roads[-1]
     print(f"SELECTED = {selected_road}")
