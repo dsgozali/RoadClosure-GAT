@@ -11,16 +11,22 @@ from ..services import build_matrix, get_cell_traceability
 def matrix(request):
     context = page_context(request)
     roads = context["roads"]
+    roads_geo = context["roads_geo"]
     selected_road = request.GET.get("road", "")
-    # if ":" in selected_road:
-    #     selected_road = selected_road.split(": ")[1]
     selected_view = request.GET.get("show-volume", "off")
-    # selected_view = (request.GET.get("show-volume") == "1")
     if selected_road not in roads and roads:
         selected_road = roads[-1]
-    print(f"SELECTED = {selected_road}")
-    matrices = build_matrix(context["frame"], selected_road, selected_view) if selected_road else []
+    selected_road_geo = roads_geo.loc[roads_geo['ROAD_NAM_1'] == selected_road]
+    matrices = build_matrix(context["frame"], selected_road, selected_view) if selected_road else ""
     for matrix_data in matrices:
+        query = urlencode({
+            "road": selected_road,
+            "region": context['region']
+        })
+        matrix_data["latitude"] = selected_road_geo["LATITUDE"]
+        matrix_data["longitude"] = selected_road_geo["LONGITUDE"]
+                
+        matrix_data['map_url'] = f"{reverse('racp:home')}?{query}"
         matrix_data["display_rows"] = []
         for row in matrix_data["rows"]:
             cells = []
@@ -45,6 +51,8 @@ def matrix(request):
                     }
                 )
             matrix_data["display_rows"].append({**row, "cells": cells})
+    
+    # matrices['region'] = context['region']
 
     selected_trace = None
     selection = {

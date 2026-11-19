@@ -4,6 +4,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/selectize.js/0.12.6/js/standalone/selectize.min.js" integrity="sha256-+C0A5Ilqmu4QcSPxrlGpaZxJ04VjsRjKu+G82kl5UJk=" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/selectize.js/0.12.6/css/selectize.bootstrap3.min.css" integrity="sha256-ze/OEYGcFbPRmvCnrSeKbRTtjG4vGLHXgOqsyLFTRjg=" crossorigin="anonymous" />
+
   <title>{% block title %}Road Access Closure Permit{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'racp/app.css' %}">
   {% block head %}{% endblock %}
@@ -26,6 +30,11 @@
         <a href="{% url 'racp:matrix' %}?region={{ region|urlencode }}">Table View</a>
         <a href="{% url 'racp:pdf' %}?region={{ region|urlencode }}">PDF View</a>
       </nav>
+      <section class="road-map-tooltip" aria-live="polite" id="road-map-tooltip" hidden>
+        <h2 class="road-map-tooltip-title"></h2>
+        <div id="road-preview-map" class="road-preview-map"></div>
+        <div class="road-map-tooltip-help">Click map to open full view</div>
+      </section>
       <section class="trace-panel" aria-live="polite">
         <h2>Audit Trail</h2>
         {% if selected_trace %}

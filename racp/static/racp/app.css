@@ -57,3 +57,35 @@ thead th { background: #1f3f5f; color: white; position: sticky; top: 0; }
   nav { grid-template-columns: repeat(3, max-content); margin-bottom: 14px; }
   .trace-panel { max-height: 260px; overflow: auto; }
 }
+
+.road-map-trigger { cursor: pointer; color: #1f5f8b; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
+ 
+.road-map-trigger:hover, .road-map-trigger:focus { color: #e65100; }
+ 
+.road-map-tooltip { position: absolute; z-index: 2000; width: 320px; padding: 8px; background: white; border: 1px solid #dfe3e8; border-radius: 6px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18); }
+ 
+.road-map-tooltip-title { margin-bottom: 6px; font-size: 13px; font-weight: 600; color: #1f3f5f; }
+ 
+.road-preview-map { width: 100%; height: 200px; cursor: pointer; border-radius: 4px; }
+ 
+.road-map-tooltip-help { margin-top: 5px; font-size: 11px; color: #666; text-align: center; }
+ 
+.traffic-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin-bottom: 18px; padding: 14px; background: #f5f7fa; border: 1px solid #dfe3e8; border-radius: 6px; }
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 150px;
+}
+.filter-group label {
+    font-size: 12px;
+    font-weight: 600;
+}
+.filter-group select {
+    min-height: 36px;
+    padding: 5px 8px;
+}
+#traffic-result-count {
+    color: #666;
+    font-size: 12px;
+}

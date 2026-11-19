@@ -1,0 +1,139 @@
+{% extends "racp/base.html" %}
+{% load racp_tags %}
+{% block title %}Table View | Road Access Closure Permit{% endblock %}
+{% block content %}
+  <header class="page-heading">
+    <h1>General Access Times — Test</h1>
+    <p>The value on the tables offers recommended number of lanes to remain open by time of day and direction. </p>
+  </header>
+  <form method="get" class="filters">
+    <input type="hidden" name="region" value="{{ region }}">
+    <label for="road">Road</label>
+    <select id="road" name="road">
+      {% for road in roads %}
+      <option value="{{ road }}" {% if road == selected_road %}selected{% endif %}>{{ road }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" disabled>Show road</button>
+    <label class="switch">
+      <!-- <input type="checkbox" id="show-volume" name="show-volume" {% if selected_view == "on" %}checked{% endif %}> -->
+      <input type="checkbox" id="show-volume" name="show-volume">
+      <span class="slider round">Show Volume</span>
+    </label>
+  </form>
+  <p class="legend">{{ legend_text }}</p>
+  <section class="traffic-section">
+    <div class="traffic-filters">
+      <div class="filter-group">
+        <label for="day-filter">Day of week</label>
+        <select id="day-filter">
+          <option value="ALL">All days</option>
+          {% for day in filters.days %}
+            <option value="{{ day }}">{{ day }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="hour-filter">Hour</label>
+        <select id="hour-filter">
+          <option value="ALL">All hours</option>
+          {% for hour in filters.hours %}
+            <option value="{{ hour }}">
+              {{ hour|stringformat:"02d" }}:00
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="description-filter">Location</label>
+        <select id="description-filter">
+          <option value="ALL">All locations</option>
+          {% for description in filters.descriptions %}
+            <option value="{{ description }}">
+              {{ description }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="direction-filter">Direction</label>
+        <select id="direction-filter">
+          <option value="ALL">All directions</option>
+          {% for direction in filters.directions %}
+            <option value="{{ direction }}">
+              {{ direction }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="button" id="reset-traffic-filters">
+        Reset
+      </button>
+    </div>
+    <div class="table-wrap">
+      <table id="traffic-table" class="matrix-table">
+        <thead>
+          <tr>
+            <th>Site ID</th>
+            <th>Description</th>
+            <th>Direction</th>
+            <th>Hour</th>
+            <th class="day-heading">Day</th>
+            <th>MON</th>
+            <th>TUE</th>
+            <th>WED</th>
+            <th>THU</th>
+            <th>FRI</th>
+            <th>SAT</th>
+            <th>SUN</th>
+            <th>Volume</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr
+              data-hour="{{ row.HOUR }}"
+              data-description="{{ row.DESCRIPTION }}"
+              data-direction="{{ row.GAZETTAL_DIRECTION }}"
+              data-mon="{{ row.MON }}"
+              data-tue="{{ row.TUE }}"
+              data-wed="{{ row.WED }}"
+              data-thu="{{ row.THU }}"
+              data-fri="{{ row.FRI }}"
+              data-sat="{{ row.SAT }}"
+              data-sun="{{ row.SUN }}"
+            >
+              <td>{{ row.SITE_ID }}</td>
+              <td>{{ row.DESCRIPTION }}</td>
+              <td>{{ row.GAZETTAL_DIRECTION }}</td>
+              <td>
+                {{ row.HOUR|stringformat:"02d" }}:00
+              </td>
+              <td class="selected-day">
+                -
+              </td>
+              <td>{{ row.MON }}</td>
+              <td>{{ row.TUE }}</td>
+              <td>{{ row.WED }}</td>
+              <td>{{ row.THU }}</td>
+              <td>{{ row.FRI }}</td>
+              <td>{{ row.SAT }}</td>
+              <td>{{ row.SUN }}</td>
+              <td class="selected-volume">
+                -
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7">
+                No traffic-volume data available.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p id="traffic-result-count"></p>
+  </section>
+
+{% endblock %}

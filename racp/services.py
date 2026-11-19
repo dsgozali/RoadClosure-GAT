@@ -7,11 +7,14 @@ import geopandas as gpd
 import numpy as np
 from scipy.spatial import cKDTree
 from shapely.geometry import Point, LineString
+import os
 
 import geopandas as gpd
 import polars as pl
 import pandas as pd
 from django.conf import settings
+from urllib.parse import urlencode
+from django.urls import reverse
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.styles import getSampleStyleSheet
@@ -30,7 +33,7 @@ from reportlab.platypus import (
 )
 
 from .constants import DB_ALIAS, DIST_IDS, DAY_NAMES, HEADER_H, SAMPLE_ROADS, WEEKDAYS, WEEKENDS, COLOR_MAP, MARGIN, FOOTER_H
-from racp.models import get_TA_volume, TaSite, TaPoints, TaSitePoints
+from racp.models import get_TA_volume, get_TA_volume_road, TaSite, TaPoints, TaSitePoints
 
 PAGE_W, PAGE_H = landscape(letter)
 
@@ -120,9 +123,111 @@ def combine_pt(row):
     return Point(row['latitude'], row['longitude'])
 
 @lru_cache(maxsize=1)
-def load_snowflake_data(year=2025):
+def load_snowflake_data(road=None, region=None, year=2025):
     """Load remote (snowflake) data for the latest one"""
-# test = FactTaTrafficVolumeReport15Min.objects.filter(date_traffic_volume = '2021-03-14')
+    print(f"MODE!!! = {road} {region}")
+    # # print("START..")
+    # tasp = TaSitePoints.objects.using(DB_ALIAS['tasp'])
+    # tasp_df = pl.DataFrame(list(tasp.values()), infer_schema_length=None)
+    # # print(f"tasp = {tasp_df.columns}")
+
+    # unique_sites = tasp_df['site_id_id'].unique().to_list()
+    # st_points = tasp_df['start_point_id'].unique().to_list()
+    # end_points = tasp_df['end_point_id'].unique().to_list()
+
+    # tas = TaSite.objects.using(DB_ALIAS['tas']).select_related("site_id").filter(site_id__in=unique_sites).values()
+    # tas_df = pl.DataFrame(list(tas.values()), infer_schema_length=None)
+    # tap = TaPoints.objects.using(DB_ALIAS['tap']).select_related("point_id").exclude(latitude__isnull=True).exclude(longitude__isnull=True).filter(Q(point_id__in=st_points) | Q(point_id__in=end_points)).values()
+    # tap = tap.exclude(latitude__isnull=True).exclude(longitude__isnull=True)
+    # tap_df = pl.DataFrame(list(tap.values()), infer_schema_length=None)
+
+    # tas_tasp = tasp_df.join(tas_df, left_on="site_id_id", right_on="site_id", how='inner')
+    # tas_p = tas_tasp.join(tap_df, left_on="point_id_id", right_on="point_id", how="left")
+    # # print(f"TASP = {tas_p.head()}")
+
+    # # print(f"NEW WAY COLS=== {tas_p.columns}")
+    # tas_p = tas_p.to_pandas()
+    # tas_p = tas_p.dropna(subset=['latitude', 'longitude'])
+
+    # tas_p['pt'] = tas_p[['latitude', 'longitude']].apply(lambda x: Point(x['latitude'], x['longitude']), axis=1)
+    # # print(f"tas_p TAIL = {tas_p.tail()}")
+    # # rsect_ids = list(tas_p['rsect_id'].unique())
+    # # roads = pl.DataFrame()
+    # # for rsect_id in rsect_ids:
+    # #     road = get_DIM_static(rsect_id)
+    # #     # print(f"ROAD = {road.values()}")
+    # #     roads = pl.concat([roads, pl.DataFrame(list(road.values()))])
+
+    # # # roads_geo = pl.DataFrame(roads)
+    # # print(f"GEO = {roads.columns}")
+    # # print(f"ROADS = {roads[0]}")
+
+    # # print(roads_geo)
+    
+
+    # # tap = TaPoints.objects.using(DB_ALIAS['tap']).exclude(latitude__isnull=True).exclude(longitude__isnull=True)
+    # # tap_df = pl.DataFrame(list(tap.values()))
+    # # tap_df = tap_df.to_pandas()
+    # # tap_df['pt'] = tap_df[['latitude', 'longitude']].apply(lambda x: Point(x['latitude'], x['longitude']), axis=1)
+
+    # # print(f"COLS gpd = {gpd_pt.columns}")
+
+    # roads = load_road_geometries()
+    # # # print(gpd_pt.columns)
+    # # # print(roads.columns)
+    # # # print(f"pt = {gpd_pt.shape}")
+    # # # print(f"ROADS = {roads.shape}")
+    # # # print(roads.crs)
+    # # # print(gpd_pt.crs)
+
+    # # # # road_cols = ['street', 'road_name', 'carrway', 'shape_Leng', 'ROAD_NAM_1', 'DESC', 'SITE_ID']
+    # # # pt_cols = list(gpd_pt.columns)
+    # # # print(f"LIST = {pt_cols}")
+    # # # # comb_gpd = gpd.sjoin_nearest(gpd_pt.to_crs("EPSG:7856"), roads.to_crs("EPSG:7856"), how="left", distance_col="dist_m")
+    # # # print(comb_gpd.columns)
+    # # # # comb_gpd = comb_gpd[pt_cols + road_cols].to_crs("EPSG:4326")
+    # # # print("-"*60)
+
+    # # points = list(comb_gpd['point_id'].unique())
+    # # tas = TaSite.objects.using(DB_ALIAS['tas']).select_related("point_id").filter(point_id__in=points).values()
+    # # tas = pl.DataFrame(list(tas), infer_schema_length=None)
+    # # # print('-'*60)
+    # # sites = tas['site_id'].unique().to_list()
+    # # tasp = TaSitePoints.objects.using(DB_ALIAS['tasp']).select_related("site_id").filter(site_id__in=sites).values()
+    # # tasp = pl.DataFrame(list(tasp), infer_schema_length=None)
+    # # # print(f"TASP = {tasp}")
+    # # # print('-'*60)
+    # # # print(f"TAS = {tas.head()}")
+    # # tas_p = tasp.join(tas, left_on="site_id_id", right_on="site_id", how='inner')
+    # traff_wb = pd.read_excel(TRAFFIC_WORKBOOK)
+    # # tas_p = tas_p.to_pandas()
+    # # print(f"TASP = {tas_p.columns}")
+    # tas_p = tas_p.merge(traff_wb[['SITE_ID', 'ROAD_NAME', 'ROAD_SECTION_ID']], left_on="site_id_id", right_on="SITE_ID", how="inner")
+    # # print(f"MERGED = {tas_p.tail()}\n{tas_p.iloc[0]}")
+    # gpd_pt = gpd.GeoDataFrame(tas_p, crs="EPSG:4326", geometry=tas_p['pt'])
+    # gpd_pt = gpd_pt.drop(columns=['pt'])
+    # # print(gpd_pt.iloc[0])
+    # comb_static = ckdnearest(gpd_pt, roads)
+
+    # # print("-"*60)
+    # # print(tas_p.columns)
+    # # # print(comb_gpd.columns)
+    # # # print("60"*10)
+    # # comb_static = comb_gpd.merge(tas_p, left_on="point_id", right_on="point_id_id", how="inner")
+    # # print('-'*60 + "\nCOMB_STATIC")
+    # # print(comb_static.head())
+    # # print(comb_static.shape)
+    # print(f"COMB_COLS = {comb_static.columns}")
+    # unique_sites = list(comb_static['site_id_id'].unique())
+    # # print(f"USITE are {unique_sites}")
+    # ta_vol = get_TA_volume(unique_sites)
+
+    # frame = pl.DataFrame(list(ta_vol), infer_schema_length=None)
+    # frame = frame.to_pandas()
+    # frame = frame.merge(comb_static[['dist_id', 'ROAD_NAME', 'ROAD_SECTION_ID', 'shape_Leng', 'site_id_id', 'site_type', 'description']], left_on="ta_road_site_id", right_on="site_id_id", how="inner")
+
+    # return frame
+
     tap = TaPoints.objects.using(DB_ALIAS['tap']).exclude(latitude__isnull=True).exclude(longitude__isnull=True)
     tap_df = pl.DataFrame(list(tap.values()))
     tap_df = tap_df.to_pandas()
@@ -131,79 +236,52 @@ def load_snowflake_data(year=2025):
     gpd_pt = gpd.GeoDataFrame(tap_df, crs="EPSG:4326", geometry=tap_df['pt'])
     gpd_pt = gpd_pt.drop(columns=['pt'])
     roads = load_road_geometries()
-    # print(gpd_pt.columns)
-    # print(roads.columns)
-    # print(f"pt = {gpd_pt.shape}")
-    # print(f"ROADS = {roads.shape}")
-    # print(roads.crs)
-    # print(gpd_pt.crs)
-
     comb_gpd = ckdnearest(gpd_pt, roads)
-    # # road_cols = ['street', 'road_name', 'carrway', 'shape_Leng', 'ROAD_NAM_1', 'DESC', 'SITE_ID']
-    # pt_cols = list(gpd_pt.columns)
-    # print(f"LIST = {pt_cols}")
-    # # comb_gpd = gpd.sjoin_nearest(gpd_pt.to_crs("EPSG:7856"), roads.to_crs("EPSG:7856"), how="left", distance_col="dist_m")
-    # print(comb_gpd.columns)
-    # # comb_gpd = comb_gpd[pt_cols + road_cols].to_crs("EPSG:4326")
-    # print("-"*60)
 
     points = list(comb_gpd['point_id'].unique())
     tas = TaSite.objects.using(DB_ALIAS['tas']).select_related("point_id").filter(point_id__in=points).values()
     tas = pl.DataFrame(list(tas), infer_schema_length=None)
     # print('-'*60)
-    sites = tas['site_id'].unique().to_list()
-    tasp = TaSitePoints.objects.using(DB_ALIAS['tasp']).select_related("site_id").filter(site_id__in=sites).values()
+    if road and region:
+        dist_id = next((k for k, v in DIST_IDS.items() if v == region), None)
+        tasp = TaSitePoints.objects.using(DB_ALIAS['tasp']).select_related("dist_id").filter(dist_id__in=[dist_id]).values()
+        print(f"static mode = {len(tasp)}")
+    else:
+        sites = tas['site_id'].unique().to_list()
+        tasp = TaSitePoints.objects.using(DB_ALIAS['tasp']).select_related("site_id").filter(site_id__in=sites).values()
+        print(f"actual mode = {len(tasp)}")
     tasp = pl.DataFrame(list(tasp), infer_schema_length=None)
-    # print(f"TASP = {tasp}")
-    # print('-'*60)
-    # print(f"TAS = {tas.head()}")
+    
     tas_p = tasp.join(tas, left_on="site_id_id", right_on="site_id", how='inner')
     traff_wb = pd.read_excel(TRAFFIC_WORKBOOK)
     tas_p = tas_p.to_pandas()
-    # print(f"TASP = {tas_p.columns}")
     tas_p = tas_p.merge(traff_wb[['SITE_ID', 'ROAD_NAME', 'ROAD_SECTION_ID']], left_on="site_id_id", right_on="SITE_ID", how="right")
 
-    # print("-"*60)
-    # print(tas_p.columns)
-    # # print(comb_gpd.columns)
-    # # print("60"*10)
     comb_static = comb_gpd.merge(tas_p, left_on="point_id", right_on="point_id_id", how="inner")
-    # print('-'*60 + "\nCOMB_STATIC")
-    # print(comb_static.head())
-    # print(comb_static.shape)
-    # print(comb_static.columns)
-    unique_sites = list(comb_static['site_id_id'].unique())
-    ta_vol = get_TA_volume(unique_sites)
+    ta_vol = None
+    if road and region:
+        road = road.upper()
+        comb_static = comb_static.loc[(comb_static['ROAD_NAME'] == road) | (comb_static['ROAD_SECTION_ID'] == road.split(": ")[0])]
+        unique_sites = list(comb_static['site_id_id'].unique())
+        ta_vol = get_TA_volume_road(unique_sites)
+    else:
+        unique_sites = list(comb_static['site_id_id'].unique())
+        ta_vol = get_TA_volume(unique_sites)
 
     frame = pl.DataFrame(list(ta_vol), infer_schema_length=None)
     frame = frame.to_pandas()
+    if "sum_volume" in frame.columns:
+        frame['total_vol'] = frame['sum_volume']
+
+    print(f"FRAME = {frame.head()}")
     frame = frame.merge(comb_static[['dist_id_x', 'ROAD_NAME', 'ROAD_SECTION_ID', 'shape_Leng', 'site_id_id', 'site_type', 'description_x']], left_on="ta_road_site_id", right_on="site_id_id", how="inner")
 
     return frame
-    # print(roads)
-    # pts_df = TaPoints.objects.
-    # values = get_TA_by_year(year)
-    # print(f"VAL = {values}")
-    # df = pl.DataFrame(list(values.values()))
-    # print(df.head())
-    # return df
-    # sites = df['TA_ROAD_SITE_ID'].unique().to_list()
-
-    # # site_pts = TaSitePoints.objects.selected_related("site").filter(site__site_id__in=sites).values()
-    # sites = TaSite.objects.selected_related("site").filter(site__site_id_in=sites).values()
-    # # sites_pts = pl.DataFrame(list(site_pts))
-    # sites_df = pl.DataFrame(list(sites))
-    # points = sites_df['POINT_ID'].unique().to_list()
-
-    # pts = TaPoints.selected_related("points").filter(point__point_id__in=points).values()
-    # pts_df = pl.DataFrame(list(pts))
-
-    # static_df = sites_df.join(pts_df, on="POINT_ID", how="inner", )
 
 @lru_cache(maxsize=1)
-def load_traffic_data():
+def load_traffic_data(road=None, region=None):
     """Load workbook data, falling back to a complete sample matrix schema."""
-    frame_raw = load_snowflake_data()
+    frame_raw = load_snowflake_data(road=road, region=region)
     frame = frame_raw.rename(columns={"ta_road_site_id": "SITE_ID", 'dist_id_x':'REGION_ID', "description_x": "DESCRIPTION"})
     frame['GAZETTAL_DIRECTION'] = frame['code_t_gazettal_direction'].apply(lambda x: 'AGAINST GAZETTAL' if x == 'TA' else 'GAZETTAL')
     frame['HOUR'] = frame['hour'].apply(lambda x: f"{x} to {x+1}")
@@ -225,11 +303,8 @@ def load_traffic_data():
                 *WEEKDAYS,
                 *WEEKENDS,
             }
-            # print(f"CHECKING the required = {frame2} {frame_columns}\nREQUIRED: {required}{set(frame_columns)}")
             frame = pl.from_dataframe(frame2)
             if required.issubset(set(frame_columns)):
-                print("PASSING REQUIRED")
-                print(frame.head(10))
                 return frame.fill_nan(None)
         except (OSError, ValueError, ImportError) as error:
             raise RuntimeError(f"Could not read traffic workbook {TRAFFIC_WORKBOOK}") from error
@@ -348,8 +423,6 @@ def build_matrix(frame, road, show_volume="off"):
     descriptions = sorted(road_frame["DESCRIPTION"].drop_nulls().unique().to_list())
     directions = sorted(frame["GAZETTAL_DIRECTION"].drop_nulls().unique().to_list())
     matrices = []
-    # print(f"build matrix FRAME = {road_frame} {road}")
-    # print(f"desc = {descriptions}")
     for description in descriptions:
         rows = []
         for direction in directions:
@@ -370,40 +443,44 @@ def build_matrix(frame, road, show_volume="off"):
         )
     return matrices
 
-def build_matrix2(frame):
+def build_matrix2(frame, road, show_volume="off"):
     """Assemble direction matrices for every description associated with a road."""
     # road_frame = frame.
-    road_frame = frame.clone()
-    roads = sorted(road_frame["ROAD_NAME"].drop_nulls().unique().to_list())
+    road_frame = frame.filter(pl.col("ROAD_Details") == road)
+    hours = sorted(road_frame["HOUR"].drop_nulls().unique().to_list())
     descriptions = sorted(road_frame["DESCRIPTION"].drop_nulls().unique().to_list())
     directions = sorted(frame["GAZETTAL_DIRECTION"].drop_nulls().unique().to_list())
-    matrices = []
-    for road in roads:
-        for description in descriptions:
-            rows = []
-            for direction in directions:
-                rows.extend(build_matrix_group(road_frame, description, direction))
-            hour_columns = sorted(
-                {key for row in rows for key in row if key not in {"Direction", "Day-HR"}},
-                key=lambda label: next(
-                    (index for index, hour in enumerate(road_frame["HOUR"]) if display_hour_label(hour) == label),
-                    100,
-                ),
-            )
-            matrices.append(
-                {
-                    "description": f"{road}: {description}",
-                    "columns": ["Direction", "Day-HR", *hour_columns],
-                    "rows": rows,
-                }
-            )
-            # print(f"mat = {matrices}")
-    return matrices
+    filters = {
+        "days": WEEKDAYS + WEEKENDS,
+        "hours": [int(hour.split(" to ")[0]) for hour in hours],
+        "descriptions": descriptions,
+        "directions": directions
+    }
+    # for description in descriptions:
+    #     rows = []
+    #     for direction in directions:
+    #         rows.extend(build_matrix_group(road_frame, description, direction))
+    #     hour_columns = sorted(
+    #         {key for row in rows for key in row if key not in {"Direction", "Day-HR"}},
+    #         key=lambda label: next(
+    #             (index for index, hour in enumerate(road_frame["HOUR"]) if display_hour_label(hour) == label),
+    #             100,
+    #         ),
+    #     )
+    #     matrices.append(
+    #         {
+    #             "description": f"{road}: {description}",
+    #             "columns": ["Direction", "Day-HR", *hour_columns],
+    #             "rows": rows,
+    #         }
+    #     )
+    #         # print(f"mat = {matrices}")
+    return filters
 
 
 def get_cell_traceability(frame, road, description, direction, day, hour):
     subset = frame.filter(
-        (pl.col("ROAD_NAME") == road) 
+        (pl.col("ROAD_Details") == road) 
         & (pl.col("DESCRIPTION") == description)
         & (pl.col("GAZETTAL_DIRECTION") == direction)
         & (pl.col("HOUR").map_elements(display_hour_label) == hour)
@@ -437,7 +514,7 @@ def get_cell_traceability(frame, road, description, direction, day, hour):
     lane_value = _lane_count(percentile_85) if percentile_85 else 0
     return {
         # "source": frame.attrs.get("source", "Provided traffic data"),
-        "source": "Workbook traffic values",
+        "source": f"{os.getenv('SNOWFLAKE_DATABASE', 'roadclosure')} traffic values",
         "input_values": values,
         "percentile_85": percentile_85,
         "lane_value": lane_value
@@ -445,7 +522,7 @@ def get_cell_traceability(frame, road, description, direction, day, hour):
 
 
 @lru_cache(maxsize=1)
-def load_road_geometries():
+def load_road_geometries(selectedroads=None):
     if not ROAD_SHAPEFILE.is_file():
         return gpd.GeoDataFrame(columns=["ROAD_NAM_1", "LATITUDE", "LONGITUDE"])
 
@@ -458,6 +535,10 @@ def load_road_geometries():
                 break
     if roads.empty:
         return roads
+    print(f"SELECTED = {selectedroads}")
+    if selectedroads:
+        selectedroads = list(selectedroads)
+        roads = roads.loc[roads['ROAD_NAM_1'].isin(selectedroads)]
 
     if "LATITUDE" not in roads.columns or "LONGITUDE" not in roads.columns:
         if roads.crs and roads.crs.is_geographic:
@@ -497,13 +578,15 @@ def build_map_points(frame, region=None):
         pl.col("SUN").mean().alias("Sunday")
     )
     averages = averages.to_pandas()
-    print("AVERAGES = ", sep=" ")
-    print(averages)
-    print('-'*60)
     roads = roads.merge(averages, on="SITE_ID", how="inner")
     roads = roads.groupby("ROAD_NAM_1", as_index=False).first()
     points = []
     for _, row in roads.dropna(subset=["LATITUDE", "LONGITUDE"]).drop_duplicates("ROAD_NAM_1").iterrows():
+        query = urlencode(
+            {
+                "road": f"{row['ROAD_SECTION_ID']}: {row['ROAD_NAM_1']}"
+            }
+        )
         points.append(
             {
                 "road": f"{row['ROAD_SECTION_ID']}: {row['ROAD_NAM_1']}",
@@ -512,6 +595,7 @@ def build_map_points(frame, region=None):
                 "weekdays": round(float(row["Weekdays"]), 2),
                 "saturday": round(float(row["Saturday"]), 2),
                 "sunday": round(float(row["Sunday"]), 2),
+                "url": f"{reverse('racp:matrix')}?{query}" if query else "",
             }
         )
     return points

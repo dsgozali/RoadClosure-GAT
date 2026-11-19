@@ -32,6 +32,8 @@ DIST_IDS = {
     412: "Wide Bay/ Burnett"
 }
 
+static_road = "U14: Gympie Arterial Road"
+static_region = "Metropolitan"
 
 HEADER_H = 34
 FOOTER_H = 26

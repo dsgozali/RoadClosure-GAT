@@ -26,6 +26,7 @@
       </table>
     </div>
     {{ map_points_json|json_script:"road-map-points" }}
+    {{ roads_json |json_script:"roads-map-line" }}
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="{% static 'racp/map.js' %}"></script>
   {% else %}
